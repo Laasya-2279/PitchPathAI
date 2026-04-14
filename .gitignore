@@ -1,0 +1,48 @@
+# Dependencies (Monorepo friendly - no leading slashes)
+node_modules/
+.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# Testing
+coverage/
+
+# Next.js (Frontend)
+.next/
+out/
+build/
+
+# Node.js (Backend)
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Environment Variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+
+# macOS
+.DS_Store
+*.pem
+
+# Vercel
+.vercel/
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Misc
+AGENTS.md
+CLAUDE.md
+# We'll keep package-lock.json tracked, but if you want to ignore it uncomment below
+# package-lock.json
