@@ -121,9 +121,9 @@ export default function VoiceChat({ onNavigate, currentLocation = 'gate_1' }) {
   };
 
   return (
-    <div className="flex flex-col flex-1 min-h-0">
+    <div className="flex flex-col flex-1 min-h-0" role="log" aria-label="Voice chat conversation">
       {/* Chat messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4" aria-live="polite">
         {messages.map((msg, i) => (
           <div
             key={i}
@@ -139,10 +139,11 @@ export default function VoiceChat({ onNavigate, currentLocation = 'gate_1' }) {
                 borderBottomRightRadius: msg.role === 'user' ? '4px' : '16px',
                 borderBottomLeftRadius: msg.role === 'ai' ? '4px' : '16px',
               }}
+              aria-label={`${msg.role === 'user' ? 'You' : 'PitchPath AI'} said: ${msg.text}`}
             >
               {msg.role === 'ai' && (
                 <div className="flex items-center gap-1.5 mb-1.5">
-                  <div className="w-5 h-5 rounded-full gradient-bg flex items-center justify-center text-white text-xs font-bold">P</div>
+                  <div className="w-5 h-5 rounded-full gradient-bg flex items-center justify-center text-white text-xs font-bold" aria-hidden="true">P</div>
                   <span className="text-xs font-medium" style={{ color: 'var(--accent)' }}>PitchPath AI</span>
                   {/* Intent badge (NEW) */}
                   {msg.intent && INTENT_BADGES[msg.intent] && (
@@ -153,6 +154,7 @@ export default function VoiceChat({ onNavigate, currentLocation = 'gate_1' }) {
                         color: INTENT_BADGES[msg.intent].color,
                         fontSize: '10px',
                       }}
+                      aria-label={`Intent: ${INTENT_BADGES[msg.intent].label}`}
                     >
                       {INTENT_BADGES[msg.intent].label}
                     </span>
@@ -165,9 +167,9 @@ export default function VoiceChat({ onNavigate, currentLocation = 'gate_1' }) {
               {msg.route && (
                 <div className="mt-2 p-2 rounded-lg text-xs" style={{
                   background: msg.role === 'user' ? 'rgba(255,255,255,0.15)' : 'var(--surface-hover)',
-                }}>
+                }} aria-label="Navigation route detail">
                   <div className="flex items-center gap-1 mb-1 font-semibold">
-                    🧭 Route: {msg.route.pathNames?.join(' → ')}
+                    <span aria-hidden="true">🧭</span> Route: {msg.route.pathNames?.join(' → ')}
                   </div>
                   <div className="flex gap-3">
                     <span>⏱ {msg.route.estimatedTime} min</span>
@@ -178,9 +180,9 @@ export default function VoiceChat({ onNavigate, currentLocation = 'gate_1' }) {
 
               {/* Match data card (NEW) */}
               {(msg.intent === 'live_match_info' || msg.intent === 'live_match_query') && msg.data && (
-                <div className="mt-2 p-2 rounded-lg text-xs" style={{ background: 'rgba(16, 185, 129, 0.1)' }}>
+                <div className="mt-2 p-2 rounded-lg text-xs" style={{ background: 'rgba(16, 185, 129, 0.1)' }} aria-label="Match score update">
                   <div className="flex items-center gap-1 mb-1 font-semibold" style={{ color: '#10b981' }}>
-                    🏏 Live Match
+                    <span aria-hidden="true">🏏</span> Live Match
                   </div>
                   {msg.data.score && (
                     <div className="flex gap-3">
@@ -202,7 +204,7 @@ export default function VoiceChat({ onNavigate, currentLocation = 'gate_1' }) {
 
         {/* Typing indicator */}
         {processing && (
-          <div className="flex justify-start fade-in">
+          <div className="flex justify-start fade-in" aria-label="Thinking...">
             <div className="rounded-2xl px-4 py-3" style={{ background: 'var(--surface)' }}>
               <div className="flex gap-1">
                 <div className="w-2 h-2 rounded-full animate-bounce" style={{ background: 'var(--accent)', animationDelay: '0ms' }} />
@@ -216,7 +218,7 @@ export default function VoiceChat({ onNavigate, currentLocation = 'gate_1' }) {
         {/* Live transcript */}
         {isListening && transcript && (
           <div className="flex justify-end fade-in">
-            <div className="max-w-xs rounded-2xl px-4 py-3" style={{ background: 'rgba(99, 102, 241, 0.2)', border: '1px dashed var(--accent)' }}>
+            <div className="max-w-xs rounded-2xl px-4 py-3" style={{ background: 'rgba(99, 102, 241, 0.2)', border: '1px dashed var(--accent)' }} aria-live="polite">
               <p className="text-sm italic" style={{ color: 'var(--accent-light)' }}>{transcript}...</p>
             </div>
           </div>
@@ -229,7 +231,7 @@ export default function VoiceChat({ onNavigate, currentLocation = 'gate_1' }) {
       <div className="p-4" style={{ borderTop: '1px solid var(--border)' }}>
         {/* Waveform when listening */}
         {isListening && (
-          <div className="flex items-end justify-center gap-1 mb-4 h-10">
+          <div className="flex items-end justify-center gap-1 mb-4 h-10" aria-hidden="true">
             {Array.from({ length: 20 }).map((_, i) => (
               <div
                 key={i}
@@ -253,6 +255,7 @@ export default function VoiceChat({ onNavigate, currentLocation = 'gate_1' }) {
               value={textInput}
               onChange={(e) => setTextInput(e.target.value)}
               placeholder={isSupported ? 'Type or tap mic to speak...' : 'Type your message...'}
+              aria-label={isSupported ? 'Type message or use voice assistant' : 'Type message'}
               className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
               style={{
                 background: 'var(--surface)',
@@ -269,6 +272,7 @@ export default function VoiceChat({ onNavigate, currentLocation = 'gate_1' }) {
               id="mic-button"
               onClick={handleMicPress}
               disabled={processing}
+              aria-label={isListening ? 'Stop listening' : 'Start voice assistant'}
               className={`w-14 h-14 rounded-full flex items-center justify-center text-white text-xl shadow-lg transition-all duration-300 ${
                 isListening ? 'mic-active' : 'hover:scale-110'
               } ${isSpeaking ? 'pulse-glow' : ''}`}
@@ -287,7 +291,7 @@ export default function VoiceChat({ onNavigate, currentLocation = 'gate_1' }) {
         </div>
 
         {/* Status text */}
-        <div className="text-center mt-2">
+        <div className="text-center mt-2" aria-live="polite">
           <span className="text-xs" style={{ color: 'var(--muted)' }}>
             {isListening ? '🔴 Listening...' :
              isSpeaking ? '🔊 Speaking...' :

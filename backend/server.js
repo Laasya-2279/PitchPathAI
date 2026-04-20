@@ -15,6 +15,8 @@ const express = require('express');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 
 const { connectDB, getConnectionStatus } = require('./config/database');
 const crowdSimulator = require('./services/crowdSimulator');
@@ -23,6 +25,7 @@ const routingRoutes = require('./routes/routing');
 const crowdRoutes = require('./routes/crowd');
 const stadiumRoutes = require('./routes/stadium');
 const simulationRoutes = require('./routes/simulation');
+const voiceRoutes = require('./routes/voice');
 
 // --- Configuration ---
 const PORT = process.env.PORT || 3001;
@@ -42,6 +45,36 @@ app.use(cors({
   },
   credentials: true
 }));
+// --- Security Hardening ---
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://maps.googleapis.com", "https://www.googletagmanager.com", "https://*.firebaseio.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      imgSrc: ["'self'", "data:", "https://maps.gstatic.com", "https://*.google.com", "https://*.googleapis.com"],
+      connectSrc: ["'self'", "wss:", "https://*.firebaseio.com", "https://*.googleapis.com", "https://*.google-analytics.com"]
+    }
+  },
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
+
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  message: { error: 'Too many requests, please try again later.' }
+});
+
+const voiceLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 30,
+  message: { error: 'Voice query limit reached. Wait a moment.' }
+});
+
+app.use(globalLimiter);
+app.use('/api/voice/tts', voiceLimiter);
+app.use('/api/voice/stt', voiceLimiter);
+
 app.use(express.json());
 
 // --- API Routes ---
@@ -49,6 +82,9 @@ app.use('/api', routingRoutes);
 app.use('/api/crowd', crowdRoutes);
 app.use('/api/stadium', stadiumRoutes);
 app.use('/api/simulate', simulationRoutes);
+app.use('/api/voice', voiceRoutes);
+
+app.disable('x-powered-by');
 
 // Global Health check for Render
 app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: Date.now() }));

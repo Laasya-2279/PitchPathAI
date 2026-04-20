@@ -8,6 +8,7 @@
 
 const { nodes } = require('../data/stadiumGraph');
 const { getConnectionStatus } = require('../config/database');
+const { db: firebaseDb } = require('../config/firebase-admin');
 
 class CrowdSimulator {
   constructor() {
@@ -118,12 +119,34 @@ class CrowdSimulator {
         }));
         await CrowdData.bulkWrite(ops);
       } catch (err) {
-        console.error('Failed to write to DB', err);
+        console.error('Failed to write to MongoDB', err);
       }
     } else {
       // Fallback local memory
       this.fallbackCrowdData = updates;
       this.fallbackQueueData = queueUpdates;
+    }
+
+    // Sync with Firebase Realtime Database
+    if (firebaseDb) {
+      try {
+        const firebaseUpdates = {};
+        Object.entries(updates).forEach(([zone, density]) => {
+          firebaseUpdates[`/crowds/${zone}`] = {
+            density,
+            queueTime: queueUpdates[zone] || null,
+            status: this.getDensityStatus(density),
+            lastUpdated: Date.now()
+          };
+        });
+        firebaseUpdates['/simulation/mode'] = this.mode;
+        firebaseUpdates['/simulation/tick'] = this.tick;
+        firebaseUpdates['/simulation/lastUpdate'] = Date.now();
+        
+        await firebaseDb.ref().update(firebaseUpdates);
+      } catch (err) {
+        console.error('Failed to sync with Firebase', err);
+      }
     }
 
     return await this.getSnapshot();

@@ -90,36 +90,48 @@ export default function useVoice() {
   }, []);
 
   /**
-   * Speak text using browser TTS
+   * Speak text using Google Cloud TTS (Primary) or Browser TTS (Fallback)
    * @param {string} text - Text to speak
-   * @returns {Promise} Resolves when speech ends
    */
-  const speak = useCallback((text) => {
-    return new Promise((resolve) => {
+  const speak = useCallback(async (text) => {
+    return new Promise(async (resolve) => {
+      setIsSpeaking(true);
+      
+      try {
+        // 1. Try Google Cloud TTS via Backend
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/voice/tts`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text }),
+        });
+
+        const data = await response.json();
+
+        if (data.success && data.audioContent) {
+          const audio = new Audio(`data:audio/mp3;base64,${data.audioContent}`);
+          audio.onended = () => {
+            setIsSpeaking(false);
+            resolve();
+          };
+          audio.onerror = () => {
+            throw new Error('Audio playback failed');
+          };
+          audio.play();
+          return;
+        }
+      } catch (err) {
+        console.warn('Cloud TTS failed, falling back to browser:', err);
+      }
+
+      // 2. Fallback to Browser SpeechSynthesis
       if (!window.speechSynthesis) {
+        setIsSpeaking(false);
         resolve();
         return;
       }
 
-      // Cancel any ongoing speech
       window.speechSynthesis.cancel();
-
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 1.0;
-      utterance.pitch = 1.0;
-      utterance.volume = 1.0;
-
-      // Try to use a good English voice
-      const voices = window.speechSynthesis.getVoices();
-      const preferredVoice = voices.find(v =>
-        v.name.includes('Google') && v.lang.startsWith('en')
-      ) || voices.find(v => v.lang.startsWith('en'));
-
-      if (preferredVoice) {
-        utterance.voice = preferredVoice;
-      }
-
-      utterance.onstart = () => setIsSpeaking(true);
       utterance.onend = () => {
         setIsSpeaking(false);
         resolve();
@@ -128,7 +140,6 @@ export default function useVoice() {
         setIsSpeaking(false);
         resolve();
       };
-
       window.speechSynthesis.speak(utterance);
     });
   }, []);
@@ -138,6 +149,9 @@ export default function useVoice() {
    */
   const stopSpeaking = useCallback(() => {
     window.speechSynthesis?.cancel();
+    // Also stop any HTML5 Audio if playing
+    const audios = document.getElementsByTagName('audio');
+    for (let i = 0; i < audios.length; i++) audios[i].pause();
     setIsSpeaking(false);
   }, []);
 

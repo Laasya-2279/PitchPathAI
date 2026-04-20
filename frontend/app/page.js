@@ -14,9 +14,10 @@ export default function HomePage() {
   return (
     <>
       <Navbar />
-      <main className="flex-1 pt-20 pb-8 px-4 sm:px-6 max-w-7xl mx-auto w-full">
+      <Navbar />
+      <main id="main-content" className="flex-1 pt-20 pb-8 px-4 sm:px-6 max-w-7xl mx-auto w-full">
         {/* Hero Section */}
-        <section className="mb-8 fade-in">
+        <section className="mb-8 fade-in" aria-labelledby="hero-heading">
           <div className="relative overflow-hidden rounded-3xl p-6 sm:p-10" style={{
             background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.1), rgba(168, 85, 247, 0.08))',
             border: '1px solid var(--glass-border)',
@@ -25,25 +26,25 @@ export default function HomePage() {
             <div className="absolute top-0 right-0 w-64 h-64 rounded-full opacity-20 float" style={{
               background: 'radial-gradient(circle, #6366f1 0%, transparent 70%)',
               filter: 'blur(40px)',
-            }} />
+            }} aria-hidden="true" />
             <div className="absolute bottom-0 left-0 w-48 h-48 rounded-full opacity-15" style={{
               background: 'radial-gradient(circle, #a855f7 0%, transparent 70%)',
               filter: 'blur(40px)',
               animation: 'float 4s ease-in-out infinite reverse',
-            }} />
+            }} aria-hidden="true" />
 
             <div className="relative z-10">
               <div className="flex items-center gap-2 mb-3">
                 <div className="px-3 py-1 rounded-full text-xs font-semibold" style={{
                   background: isConnected ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
                   color: isConnected ? '#10b981' : '#f59e0b',
-                }}>
+                }} aria-live="polite">
                   {isConnected ? '● Live' : '○ Connecting'}
                 </div>
                 <span className="text-xs" style={{ color: 'var(--muted)' }}>Narendra Modi Stadium</span>
               </div>
 
-              <h1 className="text-3xl sm:text-5xl font-bold mb-3 leading-tight">
+              <h1 id="hero-heading" className="text-3xl sm:text-5xl font-bold mb-3 leading-tight">
                 <span className="gradient-text">PitchPath</span>{' '}
                 <span style={{ color: 'var(--foreground)' }}>AI</span>
               </h1>
@@ -53,15 +54,15 @@ export default function HomePage() {
               </p>
 
               {/* Stats */}
-              <div className="flex flex-wrap gap-6">
+              <div className="flex flex-wrap gap-6" role="list">
                 {[
                   { value: '132K', label: 'Capacity', icon: '🏟️' },
                   { value: '18', label: 'Blocks', icon: '🧱' },
                   { value: '4', label: 'Gates', icon: '🚪' },
                   { value: crowdData?.summary ? `${Math.round(crowdData.summary.averageDensity * 100)}%` : '—', label: 'Avg Load', icon: '📊' },
                 ].map((stat) => (
-                  <div key={stat.label} className="flex items-center gap-2">
-                    <span className="text-xl">{stat.icon}</span>
+                  <div key={stat.label} className="flex items-center gap-2" role="listitem">
+                    <span className="text-xl" aria-hidden="true">{stat.icon}</span>
                     <div>
                       <div className="text-lg sm:text-xl font-bold" style={{ color: 'var(--foreground)' }}>{stat.value}</div>
                       <div className="text-xs" style={{ color: 'var(--muted)' }}>{stat.label}</div>
@@ -74,21 +75,21 @@ export default function HomePage() {
         </section>
 
         {/* Quick Actions */}
-        <section className="mb-8">
+        <section className="mb-8" aria-labelledby="actions-heading">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold" style={{ color: 'var(--foreground)' }}>Quick Actions</h2>
+            <h2 id="actions-heading" className="text-lg font-semibold" style={{ color: 'var(--foreground)' }}>Quick Actions</h2>
             <span className="text-xs" style={{ color: 'var(--muted)' }}>Choose an action below</span>
           </div>
           <QuickActions />
         </section>
 
         {/* Crowd Preview + Info */}
-        <section>
+        <section aria-labelledby="crowd-heading">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold" style={{ color: 'var(--foreground)' }}>Live Crowd Intelligence</h2>
-            <a href="/heatmap" className="text-xs font-medium flex items-center gap-1 hover:gap-2 transition-all" style={{ color: 'var(--accent)' }}>
+            <h2 id="crowd-heading" className="text-lg font-semibold" style={{ color: 'var(--foreground)' }}>Live Crowd Intelligence</h2>
+            <a href="/heatmap" className="text-xs font-medium flex items-center gap-1 hover:gap-2 transition-all" style={{ color: 'var(--accent)' }} aria-label="View full live heatmap">
               Full View
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                 <path d="M5 12h14M12 5l7 7-7 7" />
               </svg>
             </a>

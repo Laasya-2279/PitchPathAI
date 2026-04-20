@@ -20,6 +20,11 @@ export const metadata = {
   keywords: "stadium navigation, AR, voice assistant, crowd analytics, smart venue",
 };
 
+const GA_MEASUREMENT_ID = "G-S7PQTZE29Y"; // Placeholder for GA4
+
+import { AuthProvider } from "@/hooks/useAuth";
+import LayoutContent from "./LayoutContent";
+
 export default function RootLayout({ children }) {
   return (
     <html
@@ -30,9 +35,25 @@ export default function RootLayout({ children }) {
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
         <meta name="theme-color" content="#0b0f1a" />
+        {/* Google Analytics 4 */}
+        <script async src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`} />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', '${GA_MEASUREMENT_ID}');
+            `,
+          }}
+        />
       </head>
       <body className="min-h-full flex flex-col" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
-        {children}
+        <AuthProvider>
+          <LayoutContent>
+             {children}
+          </LayoutContent>
+        </AuthProvider>
         <DebugPanel />
       </body>
     </html>

@@ -93,14 +93,6 @@ class IntentParser {
     const stadiumResult = await this.parseStadiumQuery(text);
     if (stadiumResult) return stadiumResult;
 
-    // Check for navigation intent
-    const navResult = this.parseNavigation(text, currentLocation);
-    if (navResult) return navResult;
-
-    // Check for decision engine query (NEW)
-    const decisionResult = this.parseDecisionQuery(text, currentLocation);
-    if (decisionResult) return decisionResult;
-
     // Check for crowd query
     const crowdResult = await this.parseCrowdQuery(text);
     if (crowdResult) return crowdResult;
@@ -108,6 +100,14 @@ class IntentParser {
     // Check for nearest facility
     const facilityResult = this.parseNearestFacility(text, currentLocation);
     if (facilityResult) return facilityResult;
+
+    // Check for decision engine query (NEW)
+    const decisionResult = this.parseDecisionQuery(text, currentLocation);
+    if (decisionResult) return decisionResult;
+
+    // Check for navigation intent
+    const navResult = this.parseNavigation(text, currentLocation);
+    if (navResult) return navResult;
 
     // Default fallback
     return {

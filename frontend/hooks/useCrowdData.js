@@ -30,15 +30,65 @@ export default function useCrowdData() {
     fetchInitial();
   }, []);
 
-  // Subscribe to real-time updates
+  // Firebase Realtime Database Sync
   useEffect(() => {
-    const cleanup = on('crowd:update', (data) => {
-      setCrowdData(data);
-      setLoading(false);
+    const { ref, onValue } = require('firebase/database');
+    const { db } = require('@/lib/firebase');
+
+    const crowdRef = ref(db, 'crowds');
+    const simRef = ref(db, 'simulation');
+
+    // Subscribe to crowd data
+    const unsubscribeCrowd = onValue(crowdRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        setCrowdData(prev => {
+          const densityMap = data; // simplified map
+          const zones = prev?.zones?.map(zone => ({
+            ...zone,
+            density: data[zone.id]?.density ?? zone.density,
+            queueTime: data[zone.id]?.queueTime ?? zone.queueTime,
+            status: data[zone.id]?.status ?? zone.status,
+          })) || [];
+
+          return {
+            ...prev,
+            densityMap: Object.keys(data).reduce((acc, key) => {
+              acc[key] = data[key].density;
+              return acc;
+            }, {}),
+            queueMap: Object.keys(data).reduce((acc, key) => {
+              acc[key] = data[key].queueTime;
+              return acc;
+            }, {}),
+            zones,
+            timestamp: Date.now()
+          };
+        });
+      }
     });
 
-    return cleanup;
-  }, [on]);
+    // Subscribe to simulation metadata
+    const unsubscribeSim = onValue(simRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        setCrowdData(prev => ({
+          ...prev,
+          mode: data.mode,
+          tick: data.tick,
+          summary: {
+            ...prev?.summary,
+            mode: data.mode
+          }
+        }));
+      }
+    });
+
+    return () => {
+      unsubscribeCrowd();
+      unsubscribeSim();
+    };
+  }, []);
 
   /**
    * Get density for a specific zone

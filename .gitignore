@@ -45,4 +45,18 @@ next-env.d.ts
 # Misc
 AGENTS.md
 CLAUDE.md
-# We'll keep package-lock.json tracked, but if you want to ignore it uncomment below
+# 🧪 Artifacts & Logs
+/analysis_results.md
+/implementation_plan.md
+/research_notes.md
+/task.md
+/walkthrough.md
+/deployment_checklist.md
+
+# 🔑 Secrets & Cloud
+service-account.json
+**/service-account.json
+.auth_code
+.firebase/
+firebase-debug.log*
+.firebaserc_bak

@@ -1,15 +1,99 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import useCrowdData from '@/hooks/useCrowdData';
 
 /**
- * Full interactive stadium heatmap with SVG layout.
- * Oval stadium with clickable zones, color-coded density, and detail panel.
+ * Full interactive stadium heatmap with Google Maps integration.
+ * Narendra Modi Stadium (Ahmedabad) layout mapped to real coordinates.
  */
 export default function StadiumHeatmap() {
   const { crowdData, loading, getDensityColor, getDensityStatus, isConnected } = useCrowdData();
   const [selectedZone, setSelectedZone] = useState(null);
+  const mapRef = useRef(null);
+  const [map, setMap] = useState(null);
+  const markersRef = useRef([]);
+
+  // Narendra Modi Stadium Anchor
+  const STADIUM_CENTER = { lat: 23.0919, lng: 72.5975 };
+
+  // Map 100x100 grid to Lat/Lng offsets
+  // This is a rough estimation for the stadium oval
+  const mapGridToLatLng = (pos) => {
+    const latScale = 0.002; // degrees per 100 units
+    const lngScale = 0.0025;
+    return {
+      lat: STADIUM_CENTER.lat + (pos.y - 50) * (latScale / 100),
+      lng: STADIUM_CENTER.lng + (pos.x - 50) * (lngScale / 100)
+    };
+  };
+
+  useEffect(() => {
+    // Dynamically load Google Maps script
+    if (!window.google) {
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&callback=initMap`;
+      script.async = true;
+      script.defer = true;
+      window.initMap = () => setMap(true); // Signal script loaded
+      document.head.appendChild(script);
+    } else {
+      setMap(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (map === true && mapRef.current) {
+      const gMap = new window.google.maps.Map(mapRef.current, {
+        center: STADIUM_CENTER,
+        zoom: 18,
+        mapTypeId: 'satellite',
+        disableDefaultUI: true,
+        styles: [
+          { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] }
+        ]
+      });
+      setMap(gMap);
+    }
+  }, [map === true]);
+
+  // Update Markers when crowdData changes
+  useEffect(() => {
+    if (!map || map === true || !crowdData) return;
+
+    // Clear old markers
+    markersRef.current.forEach(m => m.setMap(null));
+    markersRef.current = [];
+
+    const zones = crowdData.zones || [];
+    
+    zones.forEach(zone => {
+      const pos = mapGridToLatLng(zone.position);
+      const color = getDensityColor(zone.density);
+      
+      const marker = new window.google.maps.Marker({
+        position: pos,
+        map,
+        title: zone.name,
+        icon: {
+          path: window.google.maps.SymbolPath.CIRCLE,
+          fillColor: color,
+          fillOpacity: 0.7,
+          strokeWeight: 2,
+          strokeColor: '#FFFFFF',
+          scale: zone.type === 'gate' ? 10 : 8
+        }
+      });
+
+      marker.addListener('click', () => {
+        setSelectedZone(zone);
+        map.panTo(pos);
+      });
+
+      markersRef.current.push(marker);
+    });
+
+  }, [map, crowdData, getDensityColor]);
 
   if (loading || !crowdData) {
     return (
@@ -22,10 +106,6 @@ export default function StadiumHeatmap() {
     );
   }
 
-  const zones = crowdData.zones || [];
-  const seatingZones = zones.filter(z => z.type === 'seating');
-  const gateZones = zones.filter(z => z.type === 'gate');
-  const facilityZones = zones.filter(z => ['washroom', 'food', 'medical', 'vip'].includes(z.type));
   const summary = crowdData.summary || {};
 
   const facilityIcons = {
@@ -38,131 +118,26 @@ export default function StadiumHeatmap() {
 
   return (
     <div className="flex flex-col lg:flex-row gap-6">
-      {/* Stadium SVG */}
+      {/* Google Map Display */}
       <div className="flex-1">
-        <div className="relative mx-auto" style={{ width: '100%', maxWidth: 600 }}>
-          <svg viewBox="0 0 200 174" className="w-full h-full">
-            {/* Background oval */}
-            <defs>
-              <radialGradient id="fieldGradient" cx="50%" cy="50%">
-                <stop offset="0%" stopColor="rgba(16, 185, 129, 0.15)" />
-                <stop offset="100%" stopColor="rgba(16, 185, 129, 0.03)" />
-              </radialGradient>
-              <filter id="glow">
-                <feGaussianBlur stdDeviation="2" result="blur" />
-                <feMerge>
-                  <feMergeNode in="blur" />
-                  <feMergeNode in="SourceGraphic" />
-                </feMerge>
-              </filter>
-            </defs>
-
-            {/* Stadium outline */}
-            <ellipse cx="100" cy="87" rx="92" ry="80" fill="none" stroke="var(--border)" strokeWidth="1" strokeDasharray="4,2" />
-
-            {/* Playing field */}
-            <ellipse cx="100" cy="87" rx="40" ry="28" fill="url(#fieldGradient)" stroke="rgba(16, 185, 129, 0.4)" strokeWidth="0.5" />
-            <line x1="100" y1="59" x2="100" y2="115" stroke="rgba(16, 185, 129, 0.3)" strokeWidth="0.3" />
-            <circle cx="100" cy="87" r="8" fill="none" stroke="rgba(16, 185, 129, 0.3)" strokeWidth="0.3" />
-            <text x="100" y="89" textAnchor="middle" fill="var(--muted)" fontSize="6" fontFamily="Inter" fontWeight="500">
-              🏏 PITCH
-            </text>
-
-            {/* Seating blocks */}
-            {seatingZones.map((zone, i) => {
-              const total = seatingZones.length;
-              const angle = (2 * Math.PI * i) / total - Math.PI / 2;
-              const rx = 70;
-              const ry = 60;
-              const x = 100 + rx * Math.cos(angle);
-              const y = 87 + ry * Math.sin(angle);
-              const color = getDensityColor(zone.density);
-              const label = zone.name.replace('Block ', '');
-              const isSelected = selectedZone?.id === zone.id;
-
-              return (
-                <g key={zone.id} onClick={() => setSelectedZone(zone)} style={{ cursor: 'pointer' }}>
-                  {/* Glow effect for selected */}
-                  {isSelected && (
-                    <circle cx={x} cy={y} r="10" fill={color} opacity="0.2" filter="url(#glow)">
-                      <animate attributeName="r" values="10;12;10" dur="1.5s" repeatCount="indefinite" />
-                    </circle>
-                  )}
-                  <circle
-                    cx={x} cy={y} r="7.5"
-                    fill={color}
-                    opacity={isSelected ? 1 : 0.75}
-                    stroke={isSelected ? 'white' : color}
-                    strokeWidth={isSelected ? '1' : '0.3'}
-                  >
-                    <animate attributeName="opacity" values={`${isSelected ? 0.9 : 0.6};${isSelected ? 1 : 0.85};${isSelected ? 0.9 : 0.6}`} dur="3s" repeatCount="indefinite" begin={`${i * 0.1}s`} />
-                  </circle>
-                  <text x={x} y={y + 2} textAnchor="middle" fill="white" fontSize="5.5" fontWeight="700" fontFamily="Inter">
-                    {label}
-                  </text>
-                  {/* Density percentage */}
-                  <text x={x} y={y + 8} textAnchor="middle" fill={color} fontSize="3.5" fontFamily="Inter" fontWeight="500">
-                    {Math.round(zone.density * 100)}%
-                  </text>
-                </g>
-              );
-            })}
-
-            {/* Gates */}
-            {gateZones.map((zone) => {
-              const color = getDensityColor(zone.density);
-              const isSelected = selectedZone?.id === zone.id;
-              return (
-                <g key={zone.id} onClick={() => setSelectedZone(zone)} style={{ cursor: 'pointer' }}>
-                  <rect
-                    x={zone.position.x * 2 - 8}
-                    y={zone.position.y * 1.74 - 5}
-                    width="16" height="10" rx="3"
-                    fill={color} opacity={isSelected ? 1 : 0.7}
-                    stroke={isSelected ? 'white' : 'none'} strokeWidth="0.5"
-                  />
-                  <text
-                    x={zone.position.x * 2}
-                    y={zone.position.y * 1.74 + 2}
-                    textAnchor="middle" fill="white" fontSize="4" fontWeight="600" fontFamily="Inter"
-                  >
-                    {zone.name.replace(' (North)', '').replace(' (South)', '').replace(' (East)', '').replace(' (West)', '')}
-                  </text>
-                </g>
-              );
-            })}
-
-            {/* Facilities */}
-            {facilityZones.map((zone) => {
-              const isSelected = selectedZone?.id === zone.id;
-              return (
-                <g key={zone.id} onClick={() => setSelectedZone(zone)} style={{ cursor: 'pointer' }}>
-                  <circle
-                    cx={zone.position.x * 2}
-                    cy={zone.position.y * 1.74}
-                    r="4"
-                    fill="var(--surface)"
-                    stroke={isSelected ? 'var(--accent)' : 'var(--border)'}
-                    strokeWidth={isSelected ? '1' : '0.5'}
-                  />
-                  <text
-                    x={zone.position.x * 2}
-                    y={zone.position.y * 1.74 + 2}
-                    textAnchor="middle" fontSize="5"
-                  >
-                    {facilityIcons[zone.type] || '📍'}
-                  </text>
-                </g>
-              );
-            })}
-          </svg>
+        <div className="relative mx-auto rounded-3xl overflow-hidden border border-[var(--border)]" style={{ width: '100%', height: 500, background: 'var(--surface)' }}>
+          <div ref={mapRef} className="w-full h-full" id="google-map" role="img" aria-label="Interactive Stadium Heatmap on Google Maps" />
+          
+          {/* Legend Overlay */}
+          <div className="absolute bottom-4 left-4 p-3 bg-black/60 backdrop-blur-md rounded-xl border border-white/10 pointer-events-none">
+             <div className="flex flex-col gap-1.5">
+               <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-[#10b981]" /> <span className="text-[10px] text-white/80">Low</span></div>
+               <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-[#f59e0b]" /> <span className="text-[10px] text-white/80">Moderate</span></div>
+               <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-[#ef4444]" /> <span className="text-[10px] text-white/80">High</span></div>
+             </div>
+          </div>
         </div>
       </div>
 
       {/* Side Panel */}
       <div className="lg:w-80 flex flex-col gap-4">
         {/* Summary Stats */}
-        <div className="glass-card p-4">
+        <div className="glass-card p-4" role="region" aria-label="Stadium Summary">
           <h3 className="font-semibold text-sm mb-3" style={{ color: 'var(--foreground)' }}>Stadium Overview</h3>
           <div className="grid grid-cols-2 gap-3">
             <div className="p-3 rounded-xl" style={{ background: 'var(--surface)' }}>
@@ -178,10 +153,15 @@ export default function StadiumHeatmap() {
 
         {/* Selected Zone Detail */}
         {selectedZone ? (
-          <div className="glass-card p-4 slide-up">
+          <div className="glass-card p-4 slide-up" role="region" aria-label="Zone Details">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold text-sm" style={{ color: 'var(--foreground)' }}>{selectedZone.name}</h3>
-              <button onClick={() => setSelectedZone(null)} className="text-xs px-2 py-1 rounded-lg" style={{ background: 'var(--surface)', color: 'var(--muted)' }}>✕</button>
+              <button 
+                onClick={() => setSelectedZone(null)} 
+                className="text-xs px-2 py-1 rounded-lg" 
+                style={{ background: 'var(--surface)', color: 'var(--muted)' }}
+                aria-label="Close details"
+              >✕</button>
             </div>
 
             <div className="space-y-3">
@@ -193,7 +173,7 @@ export default function StadiumHeatmap() {
                     {Math.round(selectedZone.density * 100)}%
                   </span>
                 </div>
-                <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--surface)' }}>
+                <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--surface)' }} role="progressbar" aria-valuenow={Math.round(selectedZone.density * 100)} aria-valuemin="0" aria-valuemax="100">
                   <div
                     className="h-full rounded-full transition-all duration-700"
                     style={{
@@ -229,7 +209,7 @@ export default function StadiumHeatmap() {
           </div>
         ) : (
           <div className="glass-card p-4 text-center">
-            <p className="text-sm" style={{ color: 'var(--muted)' }}>Click a zone on the map to see details</p>
+            <p className="text-sm" style={{ color: 'var(--muted)' }}>Click a marker on the map to see details</p>
           </div>
         )}
 
@@ -239,7 +219,20 @@ export default function StadiumHeatmap() {
             <h3 className="font-semibold text-sm mb-3" style={{ color: '#ef4444' }}>⚠ Active Hotspots</h3>
             <div className="space-y-2">
               {summary.hotspots.map((h) => (
-                <div key={h.id} className="flex items-center justify-between p-2 rounded-lg" style={{ background: 'rgba(239, 68, 68, 0.1)' }}>
+                <div 
+                  key={h.id} 
+                  className="flex items-center justify-between p-2 rounded-lg cursor-pointer hover:opacity-80" 
+                  style={{ background: 'rgba(239, 68, 68, 0.1)' }}
+                  onClick={() => {
+                    const zone = crowdData.zones.find(z => z.id === h.id);
+                    if (zone) {
+                       setSelectedZone(zone);
+                       map?.panTo(mapGridToLatLng(zone.position));
+                    }
+                  }}
+                  role="button"
+                  aria-label={`View hotspot ${h.name}`}
+                >
                   <span className="text-sm" style={{ color: 'var(--foreground)' }}>{h.name}</span>
                   <span className="text-xs font-semibold" style={{ color: '#ef4444' }}>{Math.round(h.density * 100)}%</span>
                 </div>
@@ -247,24 +240,6 @@ export default function StadiumHeatmap() {
             </div>
           </div>
         )}
-
-        {/* Legend */}
-        <div className="glass-card p-4">
-          <h3 className="font-semibold text-sm mb-2" style={{ color: 'var(--foreground)' }}>Legend</h3>
-          <div className="space-y-1.5">
-            {[
-              { label: 'Low (< 30%)', color: '#10b981' },
-              { label: 'Moderate (30-50%)', color: '#f59e0b' },
-              { label: 'High (50-70%)', color: '#f97316' },
-              { label: 'Critical (> 70%)', color: '#ef4444' },
-            ].map((item) => (
-              <div key={item.label} className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full" style={{ background: item.color }} />
-                <span className="text-xs" style={{ color: 'var(--muted)' }}>{item.label}</span>
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
     </div>
   );

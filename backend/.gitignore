@@ -43,3 +43,7 @@ next-env.d.ts
 AGENTS.md
 CLAUDE.md
 package-lock.json
+
+# Secrets
+service-account.json
+.env*
