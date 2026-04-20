@@ -1,0 +1,39 @@
+services:
+  # ==========================================
+  # 1. PitchPath AI Backend (Node + Express)
+  # ==========================================
+  - type: web
+    name: pitchpath-backend
+    env: node
+    rootDir: backend
+    plan: free # Change to starter/pro for production scale
+    buildCommand: "npm install"
+    startCommand: "npm run start"
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000 
+      # You must manually insert your production MongoDB URI in the Render Dashboard
+      - key: MONGODB_URI
+        sync: false
+
+  # ==========================================
+  # 2. PitchPath AI Frontend (Next.js)
+  # ==========================================
+  - type: web
+    name: pitchpath-frontend
+    env: node
+    rootDir: frontend
+    plan: free # Change to starter/pro for production scale
+    buildCommand: "npm install && npm run build"
+    startCommand: "npm run start"
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Points to the backend API. Update 'pitchpath-backend' to your actual backend domain name.
+      # You can override this manually in the Render dashboard later.
+      - key: NEXT_PUBLIC_API_URL
+        value: "https://pitchpath-backend.onrender.com/api"
+      - key: NEXT_PUBLIC_SOCKET_URL
+        value: "https://pitchpath-backend.onrender.com"
