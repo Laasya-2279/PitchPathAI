@@ -31,7 +31,8 @@ const MATCH_UPDATE_INTERVAL = 10000; // 10 seconds
 
 // --- Express App ---
 const app = express();
-app.use(cors({ origin: ['http://localhost:3000', 'http://127.0.0.1:3000'] }));
+const allowedOrigins = process.env.FRONTEND_URL ? [process.env.FRONTEND_URL, 'http://localhost:3000', 'http://127.0.0.1:3000'] : '*';
+app.use(cors({ origin: allowedOrigins }));
 app.use(express.json());
 
 // --- API Routes ---
@@ -55,7 +56,7 @@ app.get('/api/health', (req, res) => {
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+    origin: allowedOrigins,
     methods: ['GET', 'POST'],
   },
 });
