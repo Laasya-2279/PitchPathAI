@@ -9,7 +9,7 @@
 const { findNodeByName, getNodesByType } = require('../data/stadiumGraph');
 const crowdSimulator = require('./crowdSimulator');
 const knowledgeBase = require('./knowledgeBase');
-const matchSimulator = require('./matchSimulator');
+const liveMatchAPI = require('./liveMatchAPI');
 
 class IntentParser {
   constructor() {
@@ -30,6 +30,8 @@ class IntentParser {
     };
 
     // Query keywords
+    this.decisionKeywords = ['should i', 'best', 'recommend', 'fastest', 'quickest', 'which', 'better', 'optimal'];
+
     this.queryKeywords = {
       crowd: ['crowded', 'crowd', 'busy', 'packed', 'empty', 'space', 'how many people', 'density', 'congestion'],
       queue: ['queue', 'wait', 'line', 'how long', 'wait time', 'waiting'],
@@ -84,7 +86,7 @@ class IntentParser {
     }
 
     // Check for match queries (NEW — before navigation to avoid "match" triggering nav)
-    const matchResult = this.parseMatchQuery(text);
+    const matchResult = await this.parseMatchQuery(text);
     if (matchResult) return matchResult;
 
     // Check for stadium knowledge queries (NEW)
@@ -95,8 +97,12 @@ class IntentParser {
     const navResult = this.parseNavigation(text, currentLocation);
     if (navResult) return navResult;
 
+    // Check for decision engine query (NEW)
+    const decisionResult = this.parseDecisionQuery(text, currentLocation);
+    if (decisionResult) return decisionResult;
+
     // Check for crowd query
-    const crowdResult = this.parseCrowdQuery(text);
+    const crowdResult = await this.parseCrowdQuery(text);
     if (crowdResult) return crowdResult;
 
     // Check for nearest facility
@@ -114,15 +120,25 @@ class IntentParser {
   /**
    * Parse match-related queries (NEW)
    */
-  parseMatchQuery(text) {
+  async parseMatchQuery(text) {
     const hasMatchKeyword = this.matchKeywords.some(kw => text.includes(kw));
     if (!hasMatchKeyword) return null;
 
-    const response = matchSimulator.getVoiceResponse(text);
-    const state = matchSimulator.getState();
+    const state = await liveMatchAPI.getCachedMatchData();
+    if (!state) {
+      return {
+        intent: 'live_match_query',
+        response: 'Live data temporarily unavailable.',
+        data: null,
+        action: null,
+      };
+    }
+
+    let response = `The current score is ${state.score.team1.runs} for ${state.score.team1.wickets} by ${state.batting_team}.`;
 
     return {
-      intent: 'live_match_info',
+      intent: 'live_match_query',
+      source: 'External Live API Cache',
       response,
       data: {
         teams: state.teams,
@@ -132,6 +148,33 @@ class IntentParser {
         innings: state.innings,
       },
       action: null,
+    };
+  }
+
+  /**
+   * Parse predictive decision engine queries (NEW)
+   */
+  parseDecisionQuery(text, currentLocation) {
+    const hasDecisionKeyword = this.decisionKeywords.some(kw => text.includes(kw));
+    if (!hasDecisionKeyword) return null;
+
+    let facilityType = null;
+    for (const [type, keywords] of Object.entries(this.facilityMap)) {
+      if (keywords.some(kw => text.includes(kw))) {
+        facilityType = type;
+        break;
+      }
+    }
+
+    if (!facilityType) return null;
+
+    return {
+      intent: 'decision_query',
+      source: 'Decision Engine + DB Multi-node',
+      facilityType,
+      from: currentLocation,
+      response: `Analyzing all ${facilityType} options based on distance, crowds, and queue times...`,
+      action: 'evaluate_decision',
     };
   }
 
@@ -146,6 +189,7 @@ class IntentParser {
 
     return {
       intent: 'stadium_info',
+      source: 'MongoDB Knowledge Base',
       response: result.response,
       data: result.data,
       category: result.category,
@@ -210,6 +254,7 @@ class IntentParser {
 
     return {
       intent: 'navigate',
+      source: 'Routing Engine Base',
       destination,
       destinationName: destNode?.name || destination,
       from: currentLocation,
@@ -221,7 +266,7 @@ class IntentParser {
   /**
    * Parse crowd-related queries
    */
-  parseCrowdQuery(text) {
+  async parseCrowdQuery(text) {
     const hasCrowdKeyword = this.queryKeywords.crowd.some(kw => text.includes(kw));
     const hasQueueKeyword = this.queryKeywords.queue.some(kw => text.includes(kw));
 
@@ -247,7 +292,7 @@ class IntentParser {
     }
 
     if (targetZone) {
-      const zoneInfo = crowdSimulator.getZoneInfo(targetZone);
+      const zoneInfo = await crowdSimulator.getZoneInfo(targetZone);
       if (zoneInfo) {
         const densityPct = Math.round(zoneInfo.density * 100);
         let statusMsg = '';
@@ -265,6 +310,7 @@ class IntentParser {
 
         return {
           intent: 'query',
+          source: 'Live Simulation Engine DB',
           queryType: hasCrowdKeyword ? 'crowd' : 'queue',
           zone: targetZone,
           response,
@@ -275,7 +321,7 @@ class IntentParser {
     }
 
     // General crowd status
-    const snapshot = crowdSimulator.getSnapshot();
+    const snapshot = await crowdSimulator.getSnapshot();
     const { summary } = snapshot;
 
     let response = `Overall stadium crowd level is at ${Math.round(summary.averageDensity * 100)}% average capacity.`;
@@ -287,6 +333,7 @@ class IntentParser {
 
     return {
       intent: 'query',
+      source: 'Live Simulation Engine DB',
       queryType: 'crowd_general',
       response,
       data: summary,

@@ -14,7 +14,7 @@ const express = require('express');
 const router = express.Router();
 const scenarioEngine = require('../services/scenarioEngine');
 const crowdSimulator = require('../services/crowdSimulator');
-const matchSimulator = require('../services/matchSimulator');
+const liveMatchAPI = require('../services/liveMatchAPI');
 
 /**
  * GET /api/simulate/scenarios
@@ -111,9 +111,9 @@ router.get('/logs', (req, res) => {
  * GET /api/simulate/status
  * Get current simulation status
  */
-router.get('/status', (req, res) => {
-  const snapshot = crowdSimulator.getSnapshot();
-  const matchState = matchSimulator.getState();
+router.get('/status', async (req, res) => {
+  const snapshot = await crowdSimulator.getSnapshot();
+  const matchState = await liveMatchAPI.getCachedMatchData();
 
   res.json({
     success: true,

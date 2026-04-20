@@ -1,5 +1,6 @@
 # Dependencies (Monorepo friendly - no leading slashes)
 node_modules/
+**/package-lock.json
 .pnp
 .pnp.*
 .yarn/*
@@ -45,4 +46,3 @@ next-env.d.ts
 AGENTS.md
 CLAUDE.md
 # We'll keep package-lock.json tracked, but if you want to ignore it uncomment below
-# package-lock.json

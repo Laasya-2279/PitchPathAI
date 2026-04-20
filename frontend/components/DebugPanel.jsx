@@ -11,6 +11,7 @@ export default function DebugPanel() {
   const [isOpen, setIsOpen] = useState(false);
   const [logs, setLogs] = useState([]);
   const [status, setStatus] = useState(null);
+  const [latestIntent, setLatestIntent] = useState(null);
   const [activeTab, setActiveTab] = useState('logs');
   const logsEndRef = useRef(null);
 
@@ -35,6 +36,17 @@ export default function DebugPanel() {
     const interval = setInterval(fetchData, 3000);
     return () => clearInterval(interval);
   }, [isOpen]);
+
+  // Handle custom window events for intense parsing tracking
+  useEffect(() => {
+    const handleIntentEvent = (e) => {
+      setLatestIntent(e.detail);
+      setIsOpen(true); // Auto-open when parsing happens
+      setActiveTab('intent');
+    };
+    window.addEventListener('voice-intent-detected', handleIntentEvent);
+    return () => window.removeEventListener('voice-intent-detected', handleIntentEvent);
+  }, []);
 
   // Auto-scroll logs
   useEffect(() => {
@@ -91,7 +103,7 @@ export default function DebugPanel() {
 
           {/* Tabs */}
           <div className="flex" style={{ borderBottom: '1px solid var(--border)' }}>
-            {['logs', 'status', 'match'].map(tab => (
+            {['logs', 'status', 'intent', 'match'].map(tab => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -146,6 +158,27 @@ export default function DebugPanel() {
                     </span>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {activeTab === 'intent' && (
+              <div className="space-y-3">
+                {latestIntent ? (
+                  <div className="p-3 rounded-lg flex flex-col gap-3" style={{ background: 'var(--surface)' }}>
+                     <div>
+                       <span className="text-xs" style={{ color: 'var(--muted)' }}>Last Detected Intent</span>
+                       <div className="text-sm font-bold mt-1" style={{ color: 'var(--accent)' }}>{latestIntent.intent}</div>
+                     </div>
+                     <div>
+                       <span className="text-xs" style={{ color: 'var(--muted)' }}>Engine & Data Source Used</span>
+                       <div className="text-xs font-mono mt-1 px-2 py-1 rounded" style={{ background: 'rgba(99, 102, 241, 0.1)', color: '#818cf8' }}>
+                         {latestIntent.source}
+                       </div>
+                     </div>
+                  </div>
+                ) : (
+                  <p className="text-xs text-center" style={{ color: 'var(--muted)' }}>No intents detected yet. Use the voice assistant!</p>
+                )}
               </div>
             )}
 

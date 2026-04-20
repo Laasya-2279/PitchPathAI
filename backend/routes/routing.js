@@ -11,13 +11,14 @@ const router = express.Router();
 const routingEngine = require('../services/routingEngine');
 const intentParser = require('../services/intentParser');
 const crowdSimulator = require('../services/crowdSimulator');
+const decisionEngine = require('../services/decisionEngine');
 
 /**
  * POST /api/route
  * Body: { from: string, to: string }
  * Returns: optimized route with steps, warnings, estimated time
  */
-router.post('/route', (req, res) => {
+router.post('/route', async (req, res) => {
   try {
     const { from, to } = req.body;
 
@@ -25,8 +26,8 @@ router.post('/route', (req, res) => {
       return res.status(400).json({ error: 'Both "from" and "to" fields are required.' });
     }
 
-    const crowdData = crowdSimulator.getSnapshot().densityMap;
-    const route = routingEngine.findRoute(from, to, crowdData);
+    const snapshot = await crowdSimulator.getSnapshot();
+    const route = routingEngine.findRoute(from, to, snapshot.densityMap);
 
     if (route.error) {
       return res.status(404).json({ error: route.error });
@@ -35,7 +36,7 @@ router.post('/route', (req, res) => {
     res.json({
       success: true,
       route,
-      crowdSnapshot: crowdData,
+      crowdSnapshot: snapshot.densityMap,
     });
   } catch (err) {
     console.error('Route calculation error:', err);
@@ -60,8 +61,8 @@ router.post('/voice', async (req, res) => {
 
     // If navigation intent, calculate route
     if (result.action === 'navigate' && result.destination) {
-      const crowdData = crowdSimulator.getSnapshot().densityMap;
-      const route = routingEngine.findRoute(currentLocation, result.destination, crowdData);
+      const snapshot = await crowdSimulator.getSnapshot();
+      const route = routingEngine.findRoute(currentLocation, result.destination, snapshot.densityMap);
 
       if (!route.error) {
         // Enhance response with route details
@@ -80,8 +81,8 @@ router.post('/voice', async (req, res) => {
     }
 
     if (result.action === 'find_nearest' && result.facilityType) {
-      const crowdData = crowdSimulator.getSnapshot().densityMap;
-      const nearest = routingEngine.findNearest(currentLocation, result.facilityType, crowdData);
+      const snapshot = await crowdSimulator.getSnapshot();
+      const nearest = routingEngine.findNearest(currentLocation, result.facilityType, snapshot.densityMap);
 
       if (!nearest.error) {
         result.route = nearest;
@@ -89,6 +90,21 @@ router.post('/voice', async (req, res) => {
         result.destination = nearest.path[nearest.path.length - 1];
         result.response = `The nearest ${result.facilityType} is ${destinationName}, about ${nearest.estimatedTime} minutes away. Opening navigation now.`;
         result.action = 'navigate';
+      }
+    }
+
+    // Evaluate Decision explicitly
+    if (result.action === 'evaluate_decision' && result.facilityType) {
+      const decision = await decisionEngine.recommendFacility(currentLocation, result.facilityType);
+      
+      if (!decision.error) {
+        result.route = decision.best.route;
+        result.destination = decision.best.facility.id;
+        result.response = decision.comparisonText;
+        result.decisionOptions = decision.options;
+        result.action = 'navigate'; // Transition dynamically to pure AR pathing
+      } else {
+        result.response = "I couldn't evaluate that right now, sorry.";
       }
     }
 
@@ -106,7 +122,7 @@ router.post('/voice', async (req, res) => {
  * GET /api/nearest
  * Query: type (washroom|food|medical|gate), from (current location)
  */
-router.get('/nearest', (req, res) => {
+router.get('/nearest', async (req, res) => {
   try {
     const { type, from = 'gate_1' } = req.query;
 
@@ -114,8 +130,8 @@ router.get('/nearest', (req, res) => {
       return res.status(400).json({ error: 'Facility type is required.' });
     }
 
-    const crowdData = crowdSimulator.getSnapshot().densityMap;
-    const result = routingEngine.findNearest(from, type, crowdData);
+    const snapshot = await crowdSimulator.getSnapshot();
+    const result = routingEngine.findNearest(from, type, snapshot.densityMap);
 
     if (result.error) {
       return res.status(404).json({ error: result.error });

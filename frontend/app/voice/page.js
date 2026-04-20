@@ -28,7 +28,7 @@ export default function VoicePage() {
   return (
     <>
       <Navbar />
-      <main className="flex-1 pt-16 flex flex-col max-w-2xl mx-auto w-full">
+      <main className="flex-1 pt-16 flex flex-col max-w-2xl mx-auto w-full h-screen overflow-hidden">
         {/* Header */}
         <div className="px-4 pt-4 pb-2 fade-in">
           <div className="flex items-center gap-3">

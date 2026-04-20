@@ -14,7 +14,10 @@ const INTENT_BADGES = {
   navigate: { label: 'Navigation', color: '#6366f1', bg: 'rgba(99, 102, 241, 0.15)' },
   query: { label: 'Crowd Query', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.15)' },
   live_match_info: { label: 'Match Info', color: '#10b981', bg: 'rgba(16, 185, 129, 0.15)' },
+  live_match_query: { label: 'Match Info', color: '#10b981', bg: 'rgba(16, 185, 129, 0.15)' },
   stadium_info: { label: 'Stadium Info', color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.15)' },
+  decision_query: { label: 'Decision Engine', color: '#14b8a6', bg: 'rgba(20, 184, 166, 0.15)' },
+  evaluate_decision: { label: 'Decision Engine', color: '#14b8a6', bg: 'rgba(20, 184, 166, 0.15)' },
   greeting: { label: 'Greeting', color: '#ec4899', bg: 'rgba(236, 72, 153, 0.15)' },
   help: { label: 'Help', color: '#06b6d4', bg: 'rgba(6, 182, 212, 0.15)' },
   unknown: { label: 'Unknown', color: '#64748b', bg: 'rgba(100, 116, 139, 0.15)' },
@@ -77,6 +80,18 @@ export default function VoiceChat({ onNavigate, currentLocation = 'gate_1' }) {
       // Speak the response
       await speak(result.response);
 
+      // Dispatch event for Debug Panel synchronization
+      if (typeof window !== 'undefined') {
+        const event = new CustomEvent('voice-intent-detected', { 
+          detail: { 
+            intent: result.intent, 
+            source: result.source || 'Local / Fallback Engine',
+            timestamp: Date.now()
+          } 
+        });
+        window.dispatchEvent(event);
+      }
+
       // If navigation intent with route, trigger navigation
       if (result.action === 'navigate' && result.route && onNavigate) {
         setTimeout(() => {
@@ -106,7 +121,7 @@ export default function VoiceChat({ onNavigate, currentLocation = 'gate_1' }) {
   };
 
   return (
-    <div className="flex flex-col h-full" style={{ minHeight: 'calc(100vh - 8rem)' }}>
+    <div className="flex flex-col flex-1 min-h-0">
       {/* Chat messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((msg, i) => (
@@ -162,7 +177,7 @@ export default function VoiceChat({ onNavigate, currentLocation = 'gate_1' }) {
               )}
 
               {/* Match data card (NEW) */}
-              {msg.intent === 'live_match_info' && msg.data && (
+              {(msg.intent === 'live_match_info' || msg.intent === 'live_match_query') && msg.data && (
                 <div className="mt-2 p-2 rounded-lg text-xs" style={{ background: 'rgba(16, 185, 129, 0.1)' }}>
                   <div className="flex items-center gap-1 mb-1 font-semibold" style={{ color: '#10b981' }}>
                     🏏 Live Match

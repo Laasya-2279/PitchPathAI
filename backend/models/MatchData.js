@@ -16,5 +16,6 @@ const matchDataSchema = new mongoose.Schema({
   venue:            { type: String, default: 'Narendra Modi Stadium, Ahmedabad' },
   last_updated:     { type: Date, default: Date.now },
 }, { timestamps: true });
+matchDataSchema.index({ last_updated: -1 });
 
-module.exports = mongoose.model('MatchData', matchDataSchema);
+module.exports = mongoose.model('MatchData', matchDataSchema, 'match_cache');

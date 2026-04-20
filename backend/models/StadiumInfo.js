@@ -14,5 +14,6 @@ const stadiumInfoSchema = new mongoose.Schema({
   entry_exit_info:    { type: String },
   fun_facts:          [{ type: String }],
 }, { timestamps: true });
+stadiumInfoSchema.index({ category: 1 });
 
-module.exports = mongoose.model('StadiumInfo', stadiumInfoSchema);
+module.exports = mongoose.model('StadiumInfo', stadiumInfoSchema, 'stadium_info');

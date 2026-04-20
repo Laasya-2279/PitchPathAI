@@ -9,5 +9,6 @@ const stadiumZoneSchema = new mongoose.Schema({
   capacity:         { type: Number, default: 0 },
   position:         { x: Number, y: Number },
 }, { timestamps: true });
+stadiumZoneSchema.index({ type: 1 });
 
-module.exports = mongoose.model('StadiumZone', stadiumZoneSchema);
+module.exports = mongoose.model('StadiumZone', stadiumZoneSchema, 'stadium_zones');

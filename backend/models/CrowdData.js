@@ -10,5 +10,6 @@ const crowdDataSchema = new mongoose.Schema({
 
 // TTL index: auto-remove records older than 1 hour
 crowdDataSchema.index({ last_updated: 1 }, { expireAfterSeconds: 3600 });
+crowdDataSchema.index({ zone: 1 });
 
-module.exports = mongoose.model('CrowdData', crowdDataSchema);
+module.exports = mongoose.model('CrowdData', crowdDataSchema, 'crowd_data');

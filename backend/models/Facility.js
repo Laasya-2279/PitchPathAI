@@ -10,5 +10,6 @@ const facilitySchema = new mongoose.Schema({
   description:    { type: String, default: '' },
   is_open:        { type: Boolean, default: true },
 }, { timestamps: true });
+facilitySchema.index({ type: 1 });
 
-module.exports = mongoose.model('Facility', facilitySchema);
+module.exports = mongoose.model('Facility', facilitySchema, 'facilities');

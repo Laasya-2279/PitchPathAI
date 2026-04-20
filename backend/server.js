@@ -18,7 +18,7 @@ const cors = require('cors');
 
 const { connectDB, getConnectionStatus } = require('./config/database');
 const crowdSimulator = require('./services/crowdSimulator');
-const matchSimulator = require('./services/matchSimulator');
+const liveMatchAPI = require('./services/liveMatchAPI');
 const routingRoutes = require('./routes/routing');
 const crowdRoutes = require('./routes/crowd');
 const stadiumRoutes = require('./routes/stadium');
@@ -65,22 +65,26 @@ io.on('connection', (socket) => {
   console.log(`[Socket.io] Client connected: ${socket.id}`);
 
   // Send initial crowd data
-  socket.emit('crowd:update', crowdSimulator.getSnapshot());
+  crowdSimulator.getSnapshot().then(snapshot => {
+    socket.emit('crowd:update', snapshot);
+  });
 
   // Send initial match data
-  socket.emit('match:update', matchSimulator.getState());
+  liveMatchAPI.getCachedMatchData().then(matchData => {
+    socket.emit('match:update', matchData);
+  });
 
   // Handle client requesting specific zone info
-  socket.on('zone:query', (zoneId) => {
-    const zoneInfo = crowdSimulator.getZoneInfo(zoneId);
+  socket.on('zone:query', async (zoneId) => {
+    const zoneInfo = await crowdSimulator.getZoneInfo(zoneId);
     socket.emit('zone:info', zoneInfo);
   });
 
   // Handle route requests via socket
-  socket.on('route:request', ({ from, to }) => {
+  socket.on('route:request', async ({ from, to }) => {
     const routingEngine = require('./services/routingEngine');
-    const crowdData = crowdSimulator.getSnapshot().densityMap;
-    const route = routingEngine.findRoute(from, to, crowdData);
+    const snapshot = await crowdSimulator.getSnapshot();
+    const route = routingEngine.findRoute(from, to, snapshot.densityMap);
     socket.emit('route:result', route);
   });
 
@@ -91,9 +95,10 @@ io.on('connection', (socket) => {
   });
 
   // Handle density injection via socket
-  socket.on('simulate:inject', ({ zoneId, density }) => {
+  socket.on('simulate:inject', async ({ zoneId, density }) => {
     crowdSimulator.injectDensity(zoneId, density);
-    io.emit('crowd:update', crowdSimulator.getSnapshot());
+    const snapshot = await crowdSimulator.getSnapshot();
+    io.emit('crowd:update', snapshot);
   });
 
   socket.on('disconnect', () => {
@@ -102,17 +107,21 @@ io.on('connection', (socket) => {
 });
 
 // --- Crowd Simulation Interval ---
-setInterval(() => {
-  const snapshot = crowdSimulator.generate();
+// Changed to 5 seconds per requirements
+const REAL_CROWD_INTERVAL = 5000;
+setInterval(async () => {
+  const snapshot = await crowdSimulator.generate();
   io.emit('crowd:update', snapshot);
-}, CROWD_UPDATE_INTERVAL);
+}, REAL_CROWD_INTERVAL);
 
-// --- Match Simulation Interval ---
-setInterval(() => {
-  const state = matchSimulator.simulateBall();
-  if (state) {
-    io.emit('match:update', state);
-  }
+// --- Match API Polling ---
+// Starts the external API fetcher that caches to MongoDB
+liveMatchAPI.startPolling();
+
+// Instead of simulating locally here, we'll blast updates from the cached DB
+setInterval(async () => {
+  const matchData = await liveMatchAPI.getCachedMatchData();
+  io.emit('match:update', matchData);
 }, MATCH_UPDATE_INTERVAL);
 
 // --- Start Server ---

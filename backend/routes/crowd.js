@@ -13,9 +13,9 @@ const crowdSimulator = require('../services/crowdSimulator');
  * GET /api/crowd
  * Returns full crowd data snapshot with all zones
  */
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const snapshot = crowdSimulator.getSnapshot();
+    const snapshot = await crowdSimulator.getSnapshot();
     res.json({ success: true, ...snapshot });
   } catch (err) {
     console.error('Crowd data error:', err);
@@ -27,9 +27,9 @@ router.get('/', (req, res) => {
  * GET /api/crowd/:zoneId
  * Returns specific zone information
  */
-router.get('/:zoneId', (req, res) => {
+router.get('/:zoneId', async (req, res) => {
   try {
-    const zoneInfo = crowdSimulator.getZoneInfo(req.params.zoneId);
+    const zoneInfo = await crowdSimulator.getZoneInfo(req.params.zoneId);
 
     if (!zoneInfo) {
       return res.status(404).json({ error: `Zone "${req.params.zoneId}" not found.` });

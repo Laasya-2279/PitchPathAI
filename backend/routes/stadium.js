@@ -9,7 +9,7 @@
 const express = require('express');
 const router = express.Router();
 const knowledgeBase = require('../services/knowledgeBase');
-const matchSimulator = require('../services/matchSimulator');
+const liveMatchAPI = require('../services/liveMatchAPI');
 const { getConnectionStatus } = require('../config/database');
 
 /**
@@ -31,9 +31,12 @@ router.get('/info', async (req, res) => {
  * GET /api/stadium/match
  * Returns current live match state
  */
-router.get('/match', (req, res) => {
+router.get('/match', async (req, res) => {
   try {
-    const state = matchSimulator.getState();
+    const state = await liveMatchAPI.getCachedMatchData();
+    if (!state) {
+      return res.json({ success: false, error: 'Live data temporarily unavailable' });
+    }
     res.json({ success: true, match: state });
   } catch (err) {
     console.error('Match data error:', err);

@@ -55,6 +55,15 @@ const DEMO_STEPS = [
     action: 'reroute',
     duration: 5000,
   },
+  {
+    id: 'decision',
+    title: 'Predictive Intelligence',
+    subtitle: 'User asks: "Where is the best food right now?"',
+    description: 'The Decision Engine predicts the optimal food stall by weighing walking distance against live queue times and crowd density. Delivering high-quality, grounded AI instructions with zero hallucination.',
+    icon: '🧠',
+    action: 'decision_query',
+    duration: 8000,
+  },
 ];
 
 export default function DemoPage() {
@@ -105,6 +114,11 @@ export default function DemoPage() {
           const reroute = await getRoute('gate_1', 'block_M');
           setStepData(prev => ({ ...prev, reroute: reroute.route }));
           await setSimMode('normal');
+          break;
+        }
+        case 'decision_query': {
+          const result = await processVoice('Which food stall is best?', 'gate_1');
+          setStepData(prev => ({ ...prev, decision: result }));
           break;
         }
       }
@@ -280,6 +294,25 @@ export default function DemoPage() {
                       <span>Avg Density: {Math.round(stepData.congestion.averageDensity * 100)}%</span>
                       <span>Hotspots: {stepData.congestion.hotspots}</span>
                     </div>
+                  </div>
+                )}
+                {activeStep.id === 'decision' && stepData.decision && (
+                  <div className="mt-4 p-4 rounded-xl text-left" style={{ background: 'rgba(99, 102, 241, 0.1)' }}>
+                    <div className="text-xs font-semibold mb-2" style={{ color: '#6366f1' }}>🧠 AI Recommendation</div>
+                    <div className="text-sm font-medium mb-3" style={{ color: 'var(--foreground)' }}>
+                      {stepData.decision.response}
+                    </div>
+                    {stepData.decision.decisionOptions && (
+                      <div className="grid grid-cols-2 gap-2">
+                        {stepData.decision.decisionOptions.slice(0, 2).map((opt, idx) => (
+                          <div key={idx} className="p-2 rounded" style={{ background: 'var(--surface)' }}>
+                            <div className="text-xs font-bold" style={{ color: 'var(--accent)' }}>{opt.facility.name} {idx === 0 && '🌟'}</div>
+                            <div className="text-[10px]" style={{ color: 'var(--muted)' }}>Score: {opt.score.toFixed(2)}</div>
+                            <div className="text-[10px]" style={{ color: 'var(--muted)' }}>Queue: {opt.metrics.queue}m </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
