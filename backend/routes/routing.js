@@ -12,6 +12,7 @@ const routingEngine = require('../services/routingEngine');
 const intentParser = require('../services/intentParser');
 const crowdSimulator = require('../services/crowdSimulator');
 const decisionEngine = require('../services/decisionEngine');
+const logger = require('../utils/logger');
 
 /**
  * POST /api/route
@@ -39,7 +40,7 @@ router.post('/route', async (req, res) => {
       crowdSnapshot: snapshot.densityMap,
     });
   } catch (err) {
-    console.error('Route calculation error:', err);
+    logger.error('Route calculation error:', err);
     res.status(500).json({ error: 'Failed to calculate route.' });
   }
 });
@@ -113,7 +114,7 @@ router.post('/voice', async (req, res) => {
       ...result,
     });
   } catch (err) {
-    console.error('Voice processing error:', err);
+    logger.error('Voice processing error:', err);
     res.status(500).json({ error: 'Failed to process voice command.' });
   }
 });
@@ -139,7 +140,7 @@ router.get('/nearest', async (req, res) => {
 
     res.json({ success: true, route: result });
   } catch (err) {
-    console.error('Nearest facility error:', err);
+    logger.error('Nearest facility error:', err);
     res.status(500).json({ error: 'Failed to find nearest facility.' });
   }
 });

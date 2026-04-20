@@ -9,6 +9,7 @@
 const { nodes } = require('../data/stadiumGraph');
 const { getConnectionStatus } = require('../config/database');
 const { db: firebaseDb } = require('../config/firebase-admin');
+const logger = require('../utils/logger');
 
 class CrowdSimulator {
   constructor() {
@@ -119,7 +120,7 @@ class CrowdSimulator {
         }));
         await CrowdData.bulkWrite(ops);
       } catch (err) {
-        console.error('Failed to write to MongoDB', err);
+        logger.error('Failed to write to MongoDB', err);
       }
     } else {
       // Fallback local memory
@@ -145,7 +146,7 @@ class CrowdSimulator {
         
         await firebaseDb.ref().update(firebaseUpdates);
       } catch (err) {
-        console.error('Failed to sync with Firebase', err);
+        logger.error('Failed to sync with Firebase', err);
       }
     }
 

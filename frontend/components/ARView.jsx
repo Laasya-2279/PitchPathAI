@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import PropTypes from 'prop-types';
 import * as THREE from 'three';
 
 /**
@@ -310,3 +311,21 @@ export default function ARView({ route, currentStep = 0, onClose }) {
     </div>
   );
 }
+
+ARView.propTypes = {
+  /** The navigation route object returned from backend */
+  route: PropTypes.shape({
+    path: PropTypes.arrayOf(PropTypes.string),
+    pathNames: PropTypes.arrayOf(PropTypes.string),
+    estimatedTime: PropTypes.number,
+    distance: PropTypes.number,
+    steps: PropTypes.arrayOf(PropTypes.shape({
+      instruction: PropTypes.string,
+      direction: PropTypes.string,
+    })),
+  }),
+  /** Index of the current step in the route */
+  currentStep: PropTypes.number,
+  /** Callback to close the AR view */
+  onClose: PropTypes.func,
+};

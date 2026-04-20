@@ -15,6 +15,7 @@ const router = express.Router();
 const scenarioEngine = require('../services/scenarioEngine');
 const crowdSimulator = require('../services/crowdSimulator');
 const liveMatchAPI = require('../services/liveMatchAPI');
+const logger = require('../utils/logger');
 
 /**
  * GET /api/simulate/scenarios
@@ -43,7 +44,7 @@ router.post('/scenario', async (req, res) => {
 
     res.json({ success: true, ...result });
   } catch (err) {
-    console.error('Scenario error:', err);
+    logger.error('Scenario error:', err);
     res.status(500).json({ error: 'Failed to run scenario.' });
   }
 });

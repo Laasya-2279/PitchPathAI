@@ -8,6 +8,7 @@
 const express = require('express');
 const router = express.Router();
 const crowdSimulator = require('../services/crowdSimulator');
+const logger = require('../utils/logger');
 
 /**
  * GET /api/crowd
@@ -18,7 +19,7 @@ router.get('/', async (req, res) => {
     const snapshot = await crowdSimulator.getSnapshot();
     res.json({ success: true, ...snapshot });
   } catch (err) {
-    console.error('Crowd data error:', err);
+    logger.error('Crowd data error:', err);
     res.status(500).json({ error: 'Failed to get crowd data.' });
   }
 });
@@ -37,7 +38,7 @@ router.get('/:zoneId', async (req, res) => {
 
     res.json({ success: true, zone: zoneInfo });
   } catch (err) {
-    console.error('Zone info error:', err);
+    logger.error('Zone info error:', err);
     res.status(500).json({ error: 'Failed to get zone info.' });
   }
 });

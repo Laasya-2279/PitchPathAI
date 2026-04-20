@@ -10,6 +10,7 @@ const { findNodeByName, getNodesByType } = require('../data/stadiumGraph');
 const crowdSimulator = require('./crowdSimulator');
 const knowledgeBase = require('./knowledgeBase');
 const liveMatchAPI = require('./liveMatchAPI');
+const logger = require('../utils/logger');
 
 class IntentParser {
   constructor() {
@@ -17,7 +18,7 @@ class IntentParser {
     this.navKeywords = [
       'take me to', 'go to', 'navigate to', 'find', 'where is',
       'how to get to', 'directions to', 'bring me to', 'lead me to',
-      'show me the way to', 'i want to go to', 'get me to',
+      'show me the way to', 'i want to go to', 'get me to', 'how do i get to',
     ];
 
     // Facility keywords
@@ -59,13 +60,23 @@ class IntentParser {
   }
 
   /**
-   * Parse a voice transcript into a structured intent
-   * @param {string} transcript - Raw voice transcript
-   * @param {string} currentLocation - User's current zone ID
-   * @returns {Object} { intent, destination, response, action, route }
+   * Parse a voice transcript into a structured intent.
+   * Uses keyword matching and regex to identify stadium-related tasks.
+   * @param {string} transcript - Raw voice transcript from STT
+   * @param {string} currentLocation - User's current zone ID (defaults to 'gate_1')
+   * @returns {Promise<Object>} Object containing intent, destination, and response
    */
   async parse(transcript, currentLocation = 'gate_1') {
-    const text = transcript.toLowerCase().trim();
+    try {
+      const text = transcript ? transcript.toLowerCase().trim() : '';
+
+      if (!text) {
+        return {
+          intent: 'unknown',
+          response: "I didn't hear anything. How can I help you navigate?",
+          action: null
+        };
+      }
 
     // Check for greeting
     if (this.isGreeting(text)) {
@@ -85,74 +96,92 @@ class IntentParser {
       };
     }
 
-    // Check for match queries (NEW — before navigation to avoid "match" triggering nav)
-    const matchResult = await this.parseMatchQuery(text);
-    if (matchResult) return matchResult;
-
-    // Check for stadium knowledge queries (NEW)
-    const stadiumResult = await this.parseStadiumQuery(text);
-    if (stadiumResult) return stadiumResult;
-
-    // Check for crowd query
-    const crowdResult = await this.parseCrowdQuery(text);
-    if (crowdResult) return crowdResult;
-
-    // Check for nearest facility
-    const facilityResult = this.parseNearestFacility(text, currentLocation);
-    if (facilityResult) return facilityResult;
-
-    // Check for decision engine query (NEW)
+    // 1. Check for decision engine query (NEW - Specific)
     const decisionResult = this.parseDecisionQuery(text, currentLocation);
     if (decisionResult) return decisionResult;
 
-    // Check for navigation intent
+    // 2. Check for crowd query (Specific)
+    const crowdResult = await this.parseCrowdQuery(text);
+    if (crowdResult) return crowdResult;
+
+    // 3. Check for match queries (NEW - Specific)
+    const matchResult = await this.parseMatchQuery(text);
+    if (matchResult) return matchResult;
+
+    // 4. Check for stadium knowledge queries (NEW)
+    const stadiumResult = await this.parseStadiumQuery(text);
+    if (stadiumResult) return stadiumResult;
+
+    // 5. Check for nearest facility
+    const facilityResult = this.parseNearestFacility(text, currentLocation);
+    if (facilityResult) return facilityResult;
+
+    // 6. Check for navigation intent
     const navResult = this.parseNavigation(text, currentLocation);
     if (navResult) return navResult;
 
-    // Default fallback
-    return {
-      intent: 'unknown',
-      response: "I didn't quite catch that. Try: 'Take me to Block M', 'What's the score?', 'Is Gate 2 crowded?', or 'Tell me about this stadium'.",
-      action: null,
-    };
-  }
-
-  /**
-   * Parse match-related queries (NEW)
-   */
-  async parseMatchQuery(text) {
-    const hasMatchKeyword = this.matchKeywords.some(kw => text.includes(kw));
-    if (!hasMatchKeyword) return null;
-
-    const state = await liveMatchAPI.getCachedMatchData();
-    if (!state) {
+      // Default fallback
       return {
-        intent: 'live_match_query',
-        response: 'Live data temporarily unavailable.',
-        data: null,
+        intent: 'unknown',
+        response: "I didn't quite catch that. Try: 'Take me to Block M', 'What's the score?', 'Is Gate 2 crowded?', or 'Tell me about this stadium'.",
         action: null,
       };
+    } catch (err) {
+      logger.error('Intent parsing failed', err);
+      return {
+        intent: 'unknown',
+        response: "I'm having trouble understanding right now. Please try again.",
+        action: null
+      };
     }
-
-    let response = `The current score is ${state.score.team1.runs} for ${state.score.team1.wickets} by ${state.batting_team}.`;
-
-    return {
-      intent: 'live_match_query',
-      source: 'External Live API Cache',
-      response,
-      data: {
-        teams: state.teams,
-        score: state.score,
-        status: state.status,
-        batting_team: state.batting_team,
-        innings: state.innings,
-      },
-      action: null,
-    };
   }
 
   /**
-   * Parse predictive decision engine queries (NEW)
+   * Parse match-related queries using live match data.
+   * @param {string} text - Processed transcript text
+   * @returns {Promise<Object|null>} Match query result or null if no match found
+   */
+  async parseMatchQuery(text) {
+    try {
+      const hasMatchKeyword = this.matchKeywords.some(kw => text.includes(kw));
+      if (!hasMatchKeyword) return null;
+
+      const state = await liveMatchAPI.getCachedMatchData();
+      if (!state) {
+        return {
+          intent: 'live_match_query',
+          response: 'Live data temporarily unavailable.',
+          data: null,
+          action: null,
+        };
+      }
+
+      const response = `The current score is ${state.score.team1.runs} for ${state.score.team1.wickets} by ${state.batting_team}.`;
+
+      return {
+        intent: 'live_match_query',
+        source: 'External Live API Cache',
+        response,
+        data: {
+          teams: state.teams,
+          score: state.score,
+          status: state.status,
+          batting_team: state.batting_team,
+          innings: state.innings,
+        },
+        action: null,
+      };
+    } catch (err) {
+      logger.error('Match query parsing failed', err);
+      return null;
+    }
+  }
+
+  /**
+   * Evaluates if a query should be handled by the predictive decision engine.
+   * @param {string} text - Processed transcript text
+   * @param {string} currentLocation - Starting zone ID
+   * @returns {Object|null} Decision intent result or null
    */
   parseDecisionQuery(text, currentLocation) {
     const hasDecisionKeyword = this.decisionKeywords.some(kw => text.includes(kw));
@@ -179,26 +208,36 @@ class IntentParser {
   }
 
   /**
-   * Parse stadium knowledge queries (NEW)
+   * Fetches stadium-related facts and history from the knowledge base.
+   * @param {string} text - Processed transcript text
+   * @returns {Promise<Object|null>} Stadium query result or null
    */
   async parseStadiumQuery(text) {
-    const hasStadiumKeyword = this.stadiumKeywords.some(kw => text.includes(kw));
-    if (!hasStadiumKeyword) return null;
+    try {
+      const hasStadiumKeyword = this.stadiumKeywords.some(kw => text.includes(kw));
+      if (!hasStadiumKeyword) return null;
 
     const result = await knowledgeBase.getStadiumInfo(text);
 
-    return {
-      intent: 'stadium_info',
-      source: 'MongoDB Knowledge Base',
-      response: result.response,
-      data: result.data,
-      category: result.category,
-      action: null,
-    };
+      return {
+        intent: 'stadium_info',
+        source: 'MongoDB Knowledge Base',
+        response: result.response,
+        data: result.data,
+        category: result.category,
+        action: null,
+      };
+    } catch (err) {
+      logger.error('Stadium query parsing failed', err);
+      return null;
+    }
   }
 
   /**
-   * Parse navigation intent
+   * Identifies navigation requests and extracts the destination zone.
+   * @param {string} text - Processed transcript text
+   * @param {string} currentLocation - Source zone ID
+   * @returns {Object|null} Navigation intent result or null
    */
   parseNavigation(text, currentLocation) {
     // Check if any navigation keyword is present
@@ -264,10 +303,13 @@ class IntentParser {
   }
 
   /**
-   * Parse crowd-related queries
+   * Handles queries about crowd density or queue times in specific zones.
+   * @param {string} text - Processed transcript text
+   * @returns {Promise<Object|null>} Crowd query result or null
    */
   async parseCrowdQuery(text) {
-    const hasCrowdKeyword = this.queryKeywords.crowd.some(kw => text.includes(kw));
+    try {
+      const hasCrowdKeyword = this.queryKeywords.crowd.some(kw => text.includes(kw));
     const hasQueueKeyword = this.queryKeywords.queue.some(kw => text.includes(kw));
 
     if (!hasCrowdKeyword && !hasQueueKeyword) return null;
@@ -339,29 +381,23 @@ class IntentParser {
       data: summary,
       action: null,
     };
+    } catch (err) {
+      logger.error('Crowd query parsing failed', err);
+      return null;
+    }
   }
 
   /**
-   * Parse "nearest facility" requests
+   * Resolves the nearest facility of a specified type from the current location.
+   * @param {string} text - Processed transcript text
+   * @param {string} currentLocation - Starting zone ID
+   * @returns {Object|null} Nearest facility intent result or null
    */
   parseNearestFacility(text, currentLocation) {
     const nearKeywords = ['nearest', 'closest', 'nearby', 'close to me', 'near me', 'around here'];
     const hasNearKeyword = nearKeywords.some(kw => text.includes(kw));
 
     if (!hasNearKeyword) {
-      // Also check for direct facility mentions without "nearest"
-      for (const [type, keywords] of Object.entries(this.facilityMap)) {
-        if (keywords.some(kw => text.includes(kw))) {
-          return {
-            intent: 'navigate',
-            destination: null,
-            facilityType: type,
-            from: currentLocation,
-            response: `Let me find the nearest ${type} for you and calculate the best route.`,
-            action: 'find_nearest',
-          };
-        }
-      }
       return null;
     }
 

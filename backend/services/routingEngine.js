@@ -7,6 +7,7 @@
  */
 
 const { nodes, edges, getNode } = require('../data/stadiumGraph');
+const logger = require('../utils/logger');
 
 class RoutingEngine {
   constructor() {
@@ -38,16 +39,18 @@ class RoutingEngine {
   }
 
   /**
-   * Find shortest crowd-aware path using Dijkstra's algorithm
+   * Find the shortest crowd-aware path using Dijkstra's algorithm.
+   * Edge weight = distance * (1 + density^2).
    * @param {string} startId - Source node ID
    * @param {string} endId - Destination node ID
    * @param {Object} crowdData - Map of nodeId → density (0.0–1.0)
-   * @returns {Object} { path, distance, estimatedTime, steps, warnings }
+   * @returns {Object} { path, distance, estimatedTime, steps, warnings, error? }
    */
   findRoute(startId, endId, crowdData = {}) {
-    if (!this.adjacency[startId]) {
-      return { error: `Unknown location: ${startId}` };
-    }
+    try {
+      if (!this.adjacency[startId]) {
+        return { error: `Unknown location: ${startId}` };
+      }
     if (!this.adjacency[endId]) {
       return { error: `Unknown destination: ${endId}` };
     }
@@ -121,14 +124,18 @@ class RoutingEngine {
     // Estimated walking time: ~1.5 min per unit distance
     const estimatedTime = Math.ceil(dist[endId] * 1.5);
 
-    return {
-      path,
-      pathNames: path.map(id => getNode(id)?.name || id),
-      distance: Math.round(dist[endId] * 10) / 10,
-      estimatedTime,
-      steps,
-      warnings,
-    };
+      return {
+        path,
+        pathNames: path.map(id => getNode(id)?.name || id),
+        distance: Math.round(dist[endId] * 10) / 10,
+        estimatedTime,
+        steps,
+        warnings,
+      };
+    } catch (err) {
+      logger.error('Dijkstra calculation failed', err);
+      return { error: 'Failed to calculate optimal route.' };
+    }
   }
 
   /**
@@ -206,10 +213,16 @@ class RoutingEngine {
   }
 
   /**
-   * Find nearest facility of a given type from a starting point
+   * Find nearest facility of a given type from a starting point.
+   * Compares all facilities of that type using crowd-aware distance.
+   * @param {string} startId - Current node ID
+   * @param {string} facilityType - type of facility to find
+   * @param {Object} crowdData - Current crowd snapshot
+   * @returns {Object} Shortest route object or error
    */
   findNearest(startId, facilityType, crowdData = {}) {
-    const facilities = nodes.filter(n => n.type === facilityType);
+    try {
+      const facilities = nodes.filter(n => n.type === facilityType);
     let best = null;
     let bestDist = Infinity;
 
@@ -221,7 +234,11 @@ class RoutingEngine {
       }
     }
 
-    return best || { error: `No ${facilityType} found nearby.` };
+      return best || { error: `No ${facilityType} found nearby.` };
+    } catch (err) {
+      logger.error('Find nearest facility failed', err);
+      return { error: 'Failed to identify nearest facility.' };
+    }
   }
 }
 

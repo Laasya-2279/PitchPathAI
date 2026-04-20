@@ -11,6 +11,7 @@ const router = express.Router();
 const knowledgeBase = require('../services/knowledgeBase');
 const liveMatchAPI = require('../services/liveMatchAPI');
 const { getConnectionStatus } = require('../config/database');
+const logger = require('../utils/logger');
 
 /**
  * GET /api/stadium/info
@@ -22,7 +23,7 @@ router.get('/info', async (req, res) => {
     const result = await knowledgeBase.getStadiumInfo(topic);
     res.json({ success: true, ...result });
   } catch (err) {
-    console.error('Stadium info error:', err);
+    logger.error('Stadium info error:', err);
     res.status(500).json({ error: 'Failed to fetch stadium info.' });
   }
 });
@@ -39,7 +40,7 @@ router.get('/match', async (req, res) => {
     }
     res.json({ success: true, match: state });
   } catch (err) {
-    console.error('Match data error:', err);
+    logger.error('Match data error:', err);
     res.status(500).json({ error: 'Failed to fetch match data.' });
   }
 });
@@ -64,7 +65,7 @@ router.get('/facilities', async (req, res) => {
 
     res.json({ success: true, facilities, source: 'fallback' });
   } catch (err) {
-    console.error('Facilities error:', err);
+    logger.error('Facilities error:', err);
     res.status(500).json({ error: 'Failed to fetch facilities.' });
   }
 });

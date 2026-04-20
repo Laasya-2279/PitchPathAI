@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import useVoice from '@/hooks/useVoice';
 import { processVoice } from '@/services/api';
 
@@ -303,3 +304,10 @@ export default function VoiceChat({ onNavigate, currentLocation = 'gate_1' }) {
     </div>
   );
 }
+
+VoiceChat.propTypes = {
+  /** Callback fired when a navigation route is confirmed */
+  onNavigate: PropTypes.func,
+  /** Current zone ID of the user */
+  currentLocation: PropTypes.string,
+};

@@ -4,6 +4,7 @@ const textToSpeech = require('@google-cloud/text-to-speech');
 const speech = require('@google-cloud/speech');
 const fs = require('fs');
 const util = require('util');
+const logger = require('../utils/logger');
 
 // Initialize Google Cloud TTS client
 // Assumes GOOGLE_APPLICATION_CREDENTIALS points to service-account.json
@@ -50,7 +51,7 @@ router.post('/tts', [
       audioContent: response.audioContent.toString('base64') 
     });
   } catch (err) {
-    console.error('Google TTS Error:', err);
+    logger.error('Google TTS Error:', err);
     res.status(500).json({ error: 'Failed to synthesize speech', details: err.message });
   }
 });
@@ -83,7 +84,7 @@ router.post('/stt', [
 
     res.json({ success: true, transcript: transcription });
   } catch (err) {
-    console.error('Google STT Error:', err);
+    logger.error('Google STT Error:', err);
     res.status(500).json({ error: 'Failed to recognize speech', details: err.message });
   }
 });

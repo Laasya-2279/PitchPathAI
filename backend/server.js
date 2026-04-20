@@ -19,6 +19,7 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 
 const { connectDB, getConnectionStatus } = require('./config/database');
+const logger = require('./utils/logger');
 const crowdSimulator = require('./services/crowdSimulator');
 const liveMatchAPI = require('./services/liveMatchAPI');
 const routingRoutes = require('./routes/routing');
@@ -114,7 +115,7 @@ const io = new Server(httpServer, {
 
 // --- Socket.io Connection Handler ---
 io.on('connection', (socket) => {
-  console.log(`[Socket.io] Client connected: ${socket.id}`);
+  logger.info(`[Socket.io] Client connected: ${socket.id}`);
 
   // Send initial crowd data
   crowdSimulator.getSnapshot().then(snapshot => {
@@ -154,52 +155,53 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    console.log(`[Socket.io] Client disconnected: ${socket.id}`);
+    logger.info(`[Socket.io] Client disconnected: ${socket.id}`);
   });
 });
 
 // --- Crowd Simulation Interval ---
-// Changed to 5 seconds per requirements
-const REAL_CROWD_INTERVAL = 5000;
-setInterval(async () => {
-  const snapshot = await crowdSimulator.generate();
-  io.emit('crowd:update', snapshot);
-}, REAL_CROWD_INTERVAL);
+if (process.env.NODE_ENV !== 'test') {
+  const REAL_CROWD_INTERVAL = 5000;
+  setInterval(async () => {
+    const snapshot = await crowdSimulator.generate();
+    io.emit('crowd:update', snapshot);
+  }, REAL_CROWD_INTERVAL);
 
-// --- Match API Polling ---
-// Starts the external API fetcher that caches to MongoDB
-liveMatchAPI.startPolling();
+  // --- Match API Polling ---
+  liveMatchAPI.startPolling();
 
-// Instead of simulating locally here, we'll blast updates from the cached DB
-setInterval(async () => {
-  const matchData = await liveMatchAPI.getCachedMatchData();
-  io.emit('match:update', matchData);
-}, MATCH_UPDATE_INTERVAL);
-
-// --- Start Server ---
-async function startServer() {
-  // Try MongoDB connection (non-blocking)
-  await connectDB();
-
-  httpServer.listen(PORT, () => {
-    const db = getConnectionStatus();
-    console.log('');
-    console.log('  ╔══════════════════════════════════════════╗');
-    console.log('  ║       🏟️  PitchPath AI Backend v2        ║');
-    console.log(`  ║       Running on port ${PORT}              ║`);
-    console.log(`  ║       MongoDB: ${db.connected ? '✅ Connected' : '⚠ Fallback'}            ║`);
-    console.log('  ║       Crowd updates every 3s             ║');
-    console.log('  ║       Match updates every 10s            ║');
-    console.log('  ╚══════════════════════════════════════════╝');
-    console.log('');
-    console.log(`  REST API:     http://localhost:${PORT}/api`);
-    console.log(`  Socket.io:    http://localhost:${PORT}`);
-    console.log(`  Health:       http://localhost:${PORT}/api/health`);
-    console.log(`  Stadium Info: http://localhost:${PORT}/api/stadium/info`);
-    console.log(`  Match Data:   http://localhost:${PORT}/api/stadium/match`);
-    console.log(`  Simulation:   http://localhost:${PORT}/api/simulate/scenarios`);
-    console.log('');
-  });
+  setInterval(async () => {
+    const matchData = await liveMatchAPI.getCachedMatchData();
+    io.emit('match:update', matchData);
+  }, MATCH_UPDATE_INTERVAL);
 }
 
-startServer();
+/**
+ * Initializes and starts the PitchPath AI backend server.
+ * Connects to MongoDB and starts listening for HTTP/Socket.io traffic.
+ * @returns {Promise<void>}
+ */
+async function startServer() {
+  try {
+    // Try MongoDB connection (non-blocking)
+    await connectDB();
+
+    httpServer.listen(PORT, () => {
+      const db = getConnectionStatus();
+      logger.info('Stadium Server Boot Event', {
+        port: PORT,
+        mongodb: db.connected ? 'Connected' : 'Fallback Mode',
+        intervals: { crowd: '5s', match: '10s' }
+      });
+    });
+  } catch (err) {
+    logger.error('Failed to start PitchPath AI server', err);
+    process.exit(1);
+  }
+}
+
+if (process.env.NODE_ENV !== 'test') {
+  startServer();
+}
+
+module.exports = app;

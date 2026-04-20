@@ -7,7 +7,9 @@
     "start": "node server.js",
     "dev": "node server.js",
     "seed": "node scripts/seed.js",
-    "test": "jest"
+    "test": "jest --coverage",
+    "test:watch": "jest --watch",
+    "test:ci": "jest --coverage --ci --forceExit"
   },
   "dependencies": {
     "@google-cloud/speech": "^7.3.0",
@@ -23,6 +25,9 @@
     "socket.io": "^4.7.4"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "eslint": "^9.39.4",
+    "eslint-plugin-react": "^7.37.5",
     "jest": "^30.3.0",
     "supertest": "^7.2.2"
   }
