@@ -31,8 +31,17 @@ const MATCH_UPDATE_INTERVAL = 10000; // 10 seconds
 
 // --- Express App ---
 const app = express();
-const allowedOrigins = process.env.FRONTEND_URL ? [process.env.FRONTEND_URL, 'http://localhost:3000', 'http://127.0.0.1:3000'] : '*';
-app.use(cors({ origin: allowedOrigins }));
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',')
+  : ['http://localhost:3000'];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true
+}));
 app.use(express.json());
 
 // --- API Routes ---
@@ -41,7 +50,10 @@ app.use('/api/crowd', crowdRoutes);
 app.use('/api/stadium', stadiumRoutes);
 app.use('/api/simulate', simulationRoutes);
 
-// Health check
+// Global Health check for Render
+app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: Date.now() }));
+
+// API Health check
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
@@ -56,9 +68,12 @@ app.get('/api/health', (req, res) => {
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: allowedOrigins,
+    origin: process.env.ALLOWED_ORIGINS
+      ? process.env.ALLOWED_ORIGINS.split(',')
+      : ['http://localhost:3000'],
     methods: ['GET', 'POST'],
-  },
+    credentials: true
+  }
 });
 
 // --- Socket.io Connection Handler ---

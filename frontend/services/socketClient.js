@@ -11,11 +11,9 @@ let socket = null;
 
 export function getSocket() {
   if (!socket) {
-    socket = io(SOCKET_URL, {
+    socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:5000', {
       transports: ['websocket', 'polling'],
-      reconnection: true,
-      reconnectionDelay: 1000,
-      reconnectionAttempts: 10,
+      withCredentials: true
     });
 
     socket.on('connect', () => {

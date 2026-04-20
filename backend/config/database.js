@@ -11,10 +11,10 @@ let isConnected = false;
 let connectionError = null;
 
 async function connectDB() {
-  const uri = process.env.MONGODB_URI;
+  const uri = process.env.MONGO_URI || process.env.MONGODB_URI;
 
   if (!uri) {
-    console.warn('[MongoDB] No MONGODB_URI found in .env — running in fallback mode (in-memory data)');
+    console.warn('[MongoDB] No MONGO_URI found in .env — running in fallback mode (in-memory data)');
     return false;
   }
 
